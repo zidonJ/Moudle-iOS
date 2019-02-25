@@ -1,0 +1,80 @@
+# This file contains the fastlane.tools configuration
+# You can find the documentation at https://docs.fastlane.tools
+#
+# For a list of all available actions, check out
+#
+#     https://docs.fastlane.tools/actions
+#
+# For a list of all available plugins, check out
+#
+#     https://docs.fastlane.tools/plugins/available-plugins
+#
+
+# Uncomment the line if you want fastlane to automatically update itself
+# update_fastlane
+
+default_platform(:ios)
+
+platform :ios do
+
+  desc "朗播托福App"
+
+	before_all do
+	  # 检出到 Developer 分支
+	  sh 'git checkout ios_dev'
+	  git_pull
+	  cocoapods(repo_update: true)
+	end
+
+	after_all do #成功结束之后，处理共有的后置逻辑。
+	end
+
+	before_each do #每次执行 lane 之前都会执行一次。
+	end
+
+	after_each do #每次执行 lane 之后都会执行一次。
+	end
+
+	error do #在执行上述情况任意环境报错都会中止并执行一次。
+	end
+
+  lane :beta do
+    # add actions here: https://docs.fastlane.tools/actions
+    sync_code_signing(type: "adhoc")
+  	disable_automatic_code_signing(path: "TOEFL.xcodeproj")
+    build_app(scheme: "TOEFL",
+    					export_method: "ad-hoc", #app-store, ad-hoc, package, enterprise, development
+            	workspace: "TOEFL.xcworkspace",
+            	include_bitcode: true)
+    slack(message: "打包成功")
+  end
+
+  # lane : development do |options|
+  
+  # end
+
+  # lane : adhoc do
+  # 	build_app(scheme: "TOEFL",
+  #           workspace: "TOEFL.xcworkspace",
+  #           include_bitcode: true)
+  #   slack(message: "打包成功")
+  
+  # end
+
+  # lane : appstore do
+  
+  # end
+
+
+ #  def prepare_version(options)
+ #    increment_version_number(
+ #        version_number: options[:version]
+ #    )
+
+ #    increment_build_number(
+ #        build_number: options[:build]
+ #    )
+	# end
+
+
+end
