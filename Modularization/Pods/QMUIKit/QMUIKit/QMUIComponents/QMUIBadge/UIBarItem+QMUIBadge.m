@@ -20,6 +20,7 @@
 #import "UIView+QMUI.h"
 #import "UIBarItem+QMUI.h"
 #import "UITabBarItem+QMUI.h"
+#import "UIViewController+QMUI.h"
 
 @interface _QMUIBadgeLabel : QMUILabel
 
@@ -45,42 +46,39 @@
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         // 保证配置表里的默认值正确被设置
-        ExchangeImplementations([UIBarItem class], @selector(init), @selector(qmuibaritem_init));
-        ExchangeImplementations([UIBarItem class], @selector(initWithCoder:), @selector(qmuibaritem_initWithCoder:));
+        ExtendImplementationOfNonVoidMethodWithoutArguments([UIBarItem class], @selector(init), __kindof UIBarItem *, ^__kindof UIBarItem *(UIBarItem *selfObject, __kindof UIBarItem *originReturnValue) {
+            [selfObject qmuibaritem_didInitialize];
+            return originReturnValue;
+        });
+        
+        ExtendImplementationOfNonVoidMethodWithSingleArgument([UIBarItem class], @selector(initWithCoder:), NSCoder *, __kindof UIBarItem *, ^__kindof UIBarItem *(UIBarItem *selfObject, NSCoder *firstArgv, __kindof UIBarItem *originReturnValue) {
+            [selfObject qmuibaritem_didInitialize];
+            return originReturnValue;
+        });
         
         // UITabBarButton 在 layoutSubviews 时每次都重新让 imageView 和 label addSubview:，这会导致我们用 qmui_layoutSubviewsBlock 时产生持续的重复调用（但又不死循环，因为每次都在下一次 runloop 执行，而且奇怪的是如果不放到下一次 runloop，反而不会重复调用），所以这里 hack 地屏蔽 addSubview: 操作
-        OverrideImplementation(NSClassFromString([NSString stringWithFormat:@"%@%@", @"UITab", @"BarButton"]), @selector(addSubview:), ^id(__unsafe_unretained Class originClass, SEL originCMD, IMP originIMP) {
+        OverrideImplementation(NSClassFromString([NSString stringWithFormat:@"%@%@", @"UITab", @"BarButton"]), @selector(addSubview:), ^id(__unsafe_unretained Class originClass, SEL originCMD, IMP (^originalIMPProvider)(void)) {
             return ^(UIView *selfObject, UIView *firstArgv) {
                 
-                if ([selfObject isKindOfClass:originClass] && firstArgv.superview == selfObject) {
+                if (firstArgv.superview == selfObject) {
                     return;
                 }
                 
                 if (selfObject == firstArgv) {
-                    NSString *log = [NSString stringWithFormat:@"UITabBarButton addSubview:, 把自己作为 subview 添加到自己身上！\n%@", [NSThread callStackSymbols]];
+                    UIViewController *visibleViewController = [QMUIHelper visibleViewController];
+                    NSString *log = [NSString stringWithFormat:@"UIBarItem (QMUIBadge) addSubview:, 把自己作为 subview 添加到自己身上，self = %@, visibleViewController = %@, visibleState = %@, viewControllers = %@\n%@", selfObject, visibleViewController, @(visibleViewController.qmui_visibleState), visibleViewController.navigationController.viewControllers, [NSThread callStackSymbols]];
                     NSAssert(NO, log);
                     QMUILogWarn(@"UIBarItem (QMUIBadge)", @"%@", log);
                 }
                 
                 // call super
+                IMP originalIMP = originalIMPProvider();
                 void (*originSelectorIMP)(id, SEL, UIView *);
-                originSelectorIMP = (void (*)(id, SEL, UIView *))originIMP;
+                originSelectorIMP = (void (*)(id, SEL, UIView *))originalIMP;
                 originSelectorIMP(selfObject, originCMD, firstArgv);
             };
         });
     });
-}
-
-- (instancetype)qmuibaritem_init {
-    [self qmuibaritem_init];
-    [self qmuibaritem_didInitialize];
-    return self;
-}
-
-- (instancetype)qmuibaritem_initWithCoder:(NSCoder *)aDecoder {
-    [self qmuibaritem_initWithCoder:aDecoder];
-    [self qmuibaritem_didInitialize];
-    return self;
 }
 
 - (void)qmuibaritem_didInitialize {
@@ -353,33 +351,14 @@ static char kAssociatedObjectKey_updatesIndicatorView;
 #pragma mark - Common
 
 - (void)layoutSubviews {
-    if (self.qmui_badgeLabel && !self.qmui_badgeLabel.hidden) {
-        [self.qmui_badgeLabel sizeToFit];
-        self.qmui_badgeLabel.layer.cornerRadius = MIN(self.qmui_badgeLabel.qmui_height / 2, self.qmui_badgeLabel.qmui_width / 2);
-        
-        CGPoint centerOffset = IS_LANDSCAPE ? self.qmui_badgeLabel.centerOffsetLandscape : self.qmui_badgeLabel.centerOffset;
-        
-        UIView *superview = self.qmui_badgeLabel.superview;
-        if ([NSStringFromClass(superview.class) hasPrefix:@"UITabBar"]) {
-            // 特别的，对于 UITabBarItem，将 imageView 的 center 作为参考点
-            UIView *imageView = [UITabBarItem qmui_imageViewInTabBarButton:superview];
-            if (!imageView) return;
-            
-            self.qmui_badgeLabel.frame = CGRectSetXY(self.qmui_badgeLabel.frame, CGRectGetMinXHorizontallyCenter(imageView.frame, self.qmui_badgeLabel.frame) + centerOffset.x, CGRectGetMinYVerticallyCenter(imageView.frame, self.qmui_badgeLabel.frame) + centerOffset.y);
-        } else {
-            self.qmui_badgeLabel.frame = CGRectSetXY(self.qmui_badgeLabel.frame, CGFloatGetCenter(superview.qmui_width, self.qmui_badgeLabel.qmui_width) + centerOffset.x, CGFloatGetCenter(superview.qmui_height, self.qmui_badgeLabel.qmui_height) + centerOffset.y);
-        }
-        
-        [superview bringSubviewToFront:self.qmui_badgeLabel];
-    }
     
     if (self.qmui_updatesIndicatorView && !self.qmui_updatesIndicatorView.hidden) {
         CGPoint centerOffset = IS_LANDSCAPE ? self.qmui_updatesIndicatorView.centerOffsetLandscape : self.qmui_updatesIndicatorView.centerOffset;
 
         UIView *superview = self.qmui_updatesIndicatorView.superview;
-        if ([NSStringFromClass(superview.class) hasPrefix:@"UITabBar"]) {
+        if ([self isKindOfClass:[UITabBarItem class]]) {
             // 特别的，对于 UITabBarItem，将 imageView 的 center 作为参考点
-            UIView *imageView = [UITabBarItem qmui_imageViewInTabBarButton:superview];
+            UIView *imageView = ((UITabBarItem *)self).qmui_imageView;
             if (!imageView) return;
 
             self.qmui_updatesIndicatorView.frame = CGRectSetXY(self.qmui_updatesIndicatorView.frame, CGRectGetMinXHorizontallyCenter(imageView.frame, self.qmui_updatesIndicatorView.frame) + centerOffset.x, CGRectGetMinYVerticallyCenter(imageView.frame, self.qmui_updatesIndicatorView.frame) + centerOffset.y);
@@ -388,6 +367,26 @@ static char kAssociatedObjectKey_updatesIndicatorView;
         }
 
         [superview bringSubviewToFront:self.qmui_updatesIndicatorView];
+    }
+    
+    if (self.qmui_badgeLabel && !self.qmui_badgeLabel.hidden) {
+        [self.qmui_badgeLabel sizeToFit];
+        self.qmui_badgeLabel.layer.cornerRadius = MIN(self.qmui_badgeLabel.qmui_height / 2, self.qmui_badgeLabel.qmui_width / 2);
+        
+        CGPoint centerOffset = IS_LANDSCAPE ? self.qmui_badgeLabel.centerOffsetLandscape : self.qmui_badgeLabel.centerOffset;
+        
+        UIView *superview = self.qmui_badgeLabel.superview;
+        if ([self isKindOfClass:[UITabBarItem class]]) {
+            // 特别的，对于 UITabBarItem，将 imageView 的 center 作为参考点
+            UIView *imageView = ((UITabBarItem *)self).qmui_imageView;
+            if (!imageView) return;
+            
+            self.qmui_badgeLabel.frame = CGRectSetXY(self.qmui_badgeLabel.frame, CGRectGetMinXHorizontallyCenter(imageView.frame, self.qmui_badgeLabel.frame) + centerOffset.x, CGRectGetMinYVerticallyCenter(imageView.frame, self.qmui_badgeLabel.frame) + centerOffset.y);
+        } else {
+            self.qmui_badgeLabel.frame = CGRectSetXY(self.qmui_badgeLabel.frame, CGFloatGetCenter(superview.qmui_width, self.qmui_badgeLabel.qmui_width) + centerOffset.x, CGFloatGetCenter(superview.qmui_height, self.qmui_badgeLabel.qmui_height) + centerOffset.y);
+        }
+        
+        [superview bringSubviewToFront:self.qmui_badgeLabel];
     }
 }
 

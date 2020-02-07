@@ -11,7 +11,6 @@
 //  QMUIKit
 //
 //  Created by MoLice on 2019/J/8.
-//  Copyright © 2019 QMUI Team. All rights reserved.
 //
 
 #ifndef QMUILab_h
@@ -80,7 +79,7 @@ static char kAssociatedObjectKey_##_getterName;\
 \
 - (_type)_getterName {\
     return [((NSNumber *)objc_getAssociatedObject(self, &kAssociatedObjectKey_##_getterName)) valueGetter];\
-}
+}\
 _Pragma("clang diagnostic pop")
 
 

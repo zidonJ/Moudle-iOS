@@ -16,7 +16,6 @@
 -(BOOL)async { return [[NSString stringWithUTF8String:#isAsync] boolValue];}
 
 
-
 @protocol BHModuleProtocol <NSObject>
 
 
@@ -25,6 +24,8 @@
 //如果不去设置Level默认是Normal
 //basicModuleLevel不去实现默认Normal
 - (void)basicModuleLevel;
+//越大越优先
+- (NSInteger)modulePriority;
 
 - (BOOL)async;
 
@@ -62,6 +63,10 @@
 
 - (void)modDidReceiveLocalNotification:(BHContext *)context;
 
+- (void)modWillPresentNotification:(BHContext *)context;
+
+- (void)modDidReceiveNotificationResponse:(BHContext *)context;
+
 - (void)modWillContinueUserActivity:(BHContext *)context;
 
 - (void)modContinueUserActivity:(BHContext *)context;
@@ -69,6 +74,8 @@
 - (void)modDidFailToContinueUserActivity:(BHContext *)context;
 
 - (void)modDidUpdateContinueUserActivity:(BHContext *)context;
+
+- (void)modHandleWatchKitExtensionRequest:(BHContext *)context;
 
 - (void)modDidCustomEvent:(BHContext *)context;
 @end

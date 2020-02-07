@@ -9,6 +9,7 @@
 #import "AppDelegate.h"
 #import "JLRoutes.h"
 #import <objc/runtime.h>
+#import <BeeHive.h>
 
 @interface AppDelegate ()
 
@@ -19,35 +20,21 @@
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     // Override point for customization after application launch.
-        
-    [[JLRoutes routesForScheme:@"MAVC"] addRoute:@"/NaviPush/:controller" handler:^BOOL(NSDictionary<NSString *,id> * _Nonnull parameters) {
-        UIViewController *currentVc = [self currentViewController];
-        UIViewController *v = [[NSClassFromString(parameters[@"controller"]) alloc] init];
-        [self paramToVc:v param:parameters];
-        [currentVc.navigationController pushViewController:v animated:YES];
-        return true;
-    }];
     
-    [[JLRoutes routesForScheme:@"MBVC"] addRoute:@"/NaviPush/:controller" handler:^BOOL(NSDictionary<NSString *,id> * _Nonnull parameters) {
-        UIViewController *currentVc = [self currentViewController];
-        UIViewController *v = [[NSClassFromString(parameters[@"controller"]) alloc] init];
-        [self paramToVc:v param:parameters];
-        [currentVc.navigationController pushViewController:v animated:YES];
-        return true;
-    }];
     
-    [[JLRoutes routesForScheme:@"MCVC"] addRoute:@"/NaviPush/:controller" handler:^BOOL(NSDictionary<NSString *,id> * _Nonnull parameters) {
-        UIViewController *currentVc = [self currentViewController];
-        UIViewController *v = [[NSClassFromString(parameters[@"controller"]) alloc] init];
-        [self paramToVc:v param:parameters];
-        [currentVc.navigationController pushViewController:v animated:YES];
-        return true;
-    }];
+    [[BHModuleManager sharedManager] triggerEvent:BHMSetupEvent];
+    [[BHModuleManager sharedManager] triggerEvent:BHMInitEvent];
+    /// 配置 BeeHive 上下文
+    [[BeeHive shareInstance] setContext:[BHContext shareInstance]];
+    
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [[BHModuleManager sharedManager] triggerEvent:BHMSplashEvent];
+    });
     
     return YES;
 }
 
-- (void)paramToVc:(UIViewController *)v param:(NSDictionary<NSString *,NSString *> *)parameters{
+- (void)paramToVc:(UIViewController *)v param:(NSDictionary<NSString *,NSString *> *)parameters {
     //runtime将参数传递至需要跳转的控制器
     unsigned int outCount = 0;
     objc_property_t *properties = class_copyPropertyList(v.class , &outCount);
@@ -85,6 +72,9 @@
 
 - (BOOL)application:(UIApplication *)app openURL:(NSURL *)url options:(nonnull NSDictionary<UIApplicationOpenURLOptionsKey,id> *)options {
     
+    [[BeeHive shareInstance].context.openURLItem setOpenURL:url];
+    [[BHModuleManager sharedManager] triggerEvent:BHMOpenURLEvent];
+    
     NSString *urlSchemeStr = [[url scheme] lowercaseString];
     if ([urlSchemeStr isEqualToString:@"mavc"]) {
         return [[JLRoutes routesForScheme:@"MAVC"] routeURL:url withParameters:@{@"dict":@{@"test":@"这是一段经典的旋律"}}];
@@ -96,31 +86,24 @@
     return [JLRoutes routeURL:url];
 }
 
-
 - (void)applicationWillResignActive:(UIApplication *)application {
-    // Sent when the application is about to move from active to inactive state. This can occur for certain types of temporary interruptions (such as an incoming phone call or SMS message) or when the user quits the application and it begins the transition to the background state.
-    // Use this method to pause ongoing tasks, disable timers, and invalidate graphics rendering callbacks. Games should use this method to pause the game.
+    [[BHModuleManager sharedManager] triggerEvent:BHMWillResignActiveEvent];
 }
-
 
 - (void)applicationDidEnterBackground:(UIApplication *)application {
-    // Use this method to release shared resources, save user data, invalidate timers, and store enough application state information to restore your application to its current state in case it is terminated later.
-    // If your application supports background execution, this method is called instead of applicationWillTerminate: when the user quits.
+    [[BHModuleManager sharedManager] triggerEvent:BHMDidEnterBackgroundEvent];
 }
-
 
 - (void)applicationWillEnterForeground:(UIApplication *)application {
-    // Called as part of the transition from the background to the active state; here you can undo many of the changes made on entering the background.
+    [[BHModuleManager sharedManager] triggerEvent:BHMWillEnterForegroundEvent];
 }
-
 
 - (void)applicationDidBecomeActive:(UIApplication *)application {
-    // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
+    [[BHModuleManager sharedManager] triggerEvent:BHMDidBecomeActiveEvent];
 }
 
-
 - (void)applicationWillTerminate:(UIApplication *)application {
-    // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
+    [[BHModuleManager sharedManager] triggerEvent:BHMWillTerminateEvent];
 }
 
 

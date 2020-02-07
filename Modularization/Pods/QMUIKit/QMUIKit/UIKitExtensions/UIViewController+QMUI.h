@@ -16,6 +16,8 @@
 #import <UIKit/UIKit.h>
 #import "QMUICore.h"
 
+NS_ASSUME_NONNULL_BEGIN
+
 /// 在 App 的 rootViewController.view.frame.size 发生变化（例如横竖屏旋转，或者 iPad Split View 模式下调整大小）前发出通知，你可以通过 QMUIPrecedingAppSizeUserInfoKey 获取变化前的值（也即当前值），用 QMUIFollowingAppSizeUserInfoKey 获取变化后的值。
 extern NSNotificationName const QMUIAppSizeWillChangeNotification;
 
@@ -26,12 +28,12 @@ extern NSString *const QMUIPrecedingAppSizeUserInfoKey;
 extern NSString *const QMUIFollowingAppSizeUserInfoKey;
 
 typedef NS_OPTIONS(NSUInteger, QMUIViewControllerVisibleState) {
-    QMUIViewControllerUnknow        = 1 << 0,   /// 初始化完成但尚未触发 viewDidLoad
-    QMUIViewControllerViewDidLoad   = 1 << 1,   /// 触发了 viewDidLoad
-    QMUIViewControllerWillAppear    = 1 << 2,   /// 触发了 viewWillAppear
-    QMUIViewControllerDidAppear     = 1 << 3,   /// 触发了 viewDidAppear
-    QMUIViewControllerWillDisappear = 1 << 4,   /// 触发了 viewWillDisappear
-    QMUIViewControllerDidDisappear  = 1 << 5,   /// 触发了 viewDidDisappear
+    QMUIViewControllerUnknow        = 1 << 0,   // 初始化完成但尚未触发 viewDidLoad
+    QMUIViewControllerViewDidLoad   = 1 << 1,   // 触发了 viewDidLoad
+    QMUIViewControllerWillAppear    = 1 << 2,   // 触发了 viewWillAppear
+    QMUIViewControllerDidAppear     = 1 << 3,   // 触发了 viewDidAppear
+    QMUIViewControllerWillDisappear = 1 << 4,   // 触发了 viewWillDisappear
+    QMUIViewControllerDidDisappear  = 1 << 5,   // 触发了 viewDidDisappear
     
     QMUIViewControllerVisible       = QMUIViewControllerWillAppear | QMUIViewControllerDidAppear,// 表示是否处于可视范围，判断时请用 & 运算，例如 qmui_visibleState & QMUIViewControllerVisible
 };
@@ -72,7 +74,7 @@ typedef NS_OPTIONS(NSUInteger, QMUIViewControllerVisibleState) {
 /**
  在当前 viewController 生命周期发生变化的时候调用
  */
-@property(nonatomic, copy) void (^qmui_visibleStateDidChangeBlock)(__kindof UIViewController *viewController, QMUIViewControllerVisibleState visibleState);
+@property(nullable, nonatomic, copy) void (^qmui_visibleStateDidChangeBlock)(__kindof UIViewController *viewController, QMUIViewControllerVisibleState visibleState);
 
 /**
  *  UINavigationBar 在 self.view 坐标系里的 maxY，一般用于 self.view.subviews 布局时参考用
@@ -104,6 +106,12 @@ typedef NS_OPTIONS(NSUInteger, QMUIViewControllerVisibleState) {
  获取当前 viewController 的 statusBar style，与系统 preferredStatusBarStyle 的区别在于，系统的方法在对 containerViewController（例如 UITabBarController、UINavigationController 等）调用时，返回的是 containerViewController 自身的 preferredStatusBarStyle 的值，但真正决定 statusBar style 的是该 containerViewController 的 childViewControllerForStatusBarHidden 的 preferredStatusBarStyle 的值，所以只有用 qmui_preferredStatusBarStyle 才能拿到真正的值。
  */
 @property(nonatomic, assign, readonly) UIStatusBarStyle qmui_preferredStatusBarStyle;
+
+/**
+ 判断当前 viewController 是否具备显示 LargeTitle 的条件
+ @warning 需要 viewController 在 navigationController 栈内才能正确判断
+ */
+@property(nonatomic, assign, readonly) BOOL qmui_prefersLargeTitleDisplayed;
 
 @end
 
@@ -138,6 +146,31 @@ typedef NS_OPTIONS(NSUInteger, QMUIViewControllerVisibleState) {
 - (BOOL)qmui_shouldForceRotateDeviceOrientation;
 @end
 
+@interface UIViewController (QMUINavigationController)
+
+/// 判断当前 viewController 是否处于手势返回中，仅对当前手势返回涉及到的前后两个 viewController 有效
+@property(nonatomic, assign, readonly) BOOL qmui_navigationControllerPoppingInteracted;
+
+/// 基本与上一个属性 qmui_navigationControllerPoppingInteracted 相同，只不过 qmui_navigationControllerPoppingInteracted 是在 began 时就为 YES，而这个属性仅在 changed 时才为 YES。
+/// @note viewController 会在走完 viewWillAppear: 之后才将这个值置为 YES。
+@property(nonatomic, assign) BOOL qmui_navigationControllerPopGestureRecognizerChanging;
+
+/// 当前 viewController 是否正在被手势返回 pop
+@property(nonatomic, assign) BOOL qmui_poppingByInteractivePopGestureRecognizer;
+
+/// 当前 viewController 是否是手势返回中，背后的那个界面
+@property(nonatomic, assign) BOOL qmui_willAppearByInteractivePopGestureRecognizer;
+
+
+/// 可用于对  View 执行一些操作， 如果此时处于转场过渡中，这些操作会跟随转场进度以动画的形式展示过程
+/// @param animation 要执行的操作
+/// @param completion 转场完成或取消后的回调
+/// @note 如果处于非转场过程中，也会执行 animation ，随后执行 completion，业务无需关心是否处于转场过程中。
+- (void)qmui_animateAlongsideTransition:(void (^ __nullable)(id <UIViewControllerTransitionCoordinatorContext>context))animation
+                             completion:(void (^ __nullable)(id <UIViewControllerTransitionCoordinatorContext>context))completion;
+
+@end
+
 @interface QMUIHelper (ViewController)
 
 /**
@@ -147,3 +180,5 @@ typedef NS_OPTIONS(NSUInteger, QMUIViewControllerVisibleState) {
 + (nullable UIViewController *)visibleViewController;
 
 @end
+
+NS_ASSUME_NONNULL_END

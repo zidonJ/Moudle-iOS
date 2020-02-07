@@ -16,6 +16,7 @@
 #import "UIColor+QMUI.h"
 #import "QMUICore.h"
 #import "NSString+QMUI.h"
+#import "NSObject+QMUI.h"
 
 @implementation UIColor (QMUI)
 
@@ -23,17 +24,15 @@
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         // 使用 [UIColor colorWithRed:green:blue:alpha:] 或 [UIColor colorWithHue:saturation:brightness:alpha:] 方法创建的颜色是 UIDeviceRGBColor 类型的而不是 UIColor 类型的
-        ExchangeImplementations([UIColor colorWithRed:1 green:1 blue:1 alpha:1].class, @selector(description), @selector(qmuicolor_description));
+        ExtendImplementationOfNonVoidMethodWithoutArguments([[UIColor colorWithRed:1 green:1 blue:1 alpha:1] class], @selector(description), NSString *, ^NSString *(UIColor *selfObject, NSString *originReturnValue) {
+            NSInteger red = selfObject.qmui_red * 255;
+            NSInteger green = selfObject.qmui_green * 255;
+            NSInteger blue = selfObject.qmui_blue * 255;
+            CGFloat alpha = selfObject.qmui_alpha;
+            NSString *description = ([NSString stringWithFormat:@"%@, RGBA(%@, %@, %@, %.2f), %@", originReturnValue, @(red), @(green), @(blue), alpha, [selfObject qmui_hexString]]);
+            return description;
+        });
     });
-}
-
-- (NSString *)qmuicolor_description {
-    NSInteger red = self.qmui_red * 255;
-    NSInteger green = self.qmui_green * 255;
-    NSInteger blue = self.qmui_blue * 255;
-    CGFloat alpha = self.qmui_alpha;
-    NSString *description = [NSString stringWithFormat:@"%@, RGBA(%@, %@, %@, %.2f), %@", [self qmuicolor_description], @(red), @(green), @(blue), alpha, [self qmui_hexString]];
-    return description;
 }
 
 + (UIColor *)qmui_colorWithHexString:(NSString *)hexString {
@@ -181,8 +180,8 @@
 }
 
 - (BOOL)qmui_colorIsDark {
-    CGFloat red = 0.0, green = 0.0, blue = 0.0, alpha = 0.0;
-    if ([self getRed:&red green:&green blue:&blue alpha:&alpha]) {
+    CGFloat red = 0.0, green = 0.0, blue = 0.0;
+    if ([self getRed:&red green:&green blue:&blue alpha:0]) {
         float referenceValue = 0.411;
         float colorDelta = ((red * 0.299) + (green * 0.587) + (blue * 0.114));
         
@@ -256,6 +255,58 @@
     CGFloat green = ( arc4random() % 255 / 255.0 );
     CGFloat blue = ( arc4random() % 255 / 255.0 );
     return [UIColor colorWithRed:red green:green blue:blue alpha:1.0];
+}
+
+@end
+
+
+NSString *const QMUICGColorOriginalColorBindKey = @"QMUICGColorOriginalColorBindKey";
+
+@implementation UIColor (QMUI_DynamicColor)
+
++ (void)load {
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+#ifdef IOS13_SDK_ALLOWED
+        if (@available(iOS 13.0, *)) {
+            ExtendImplementationOfNonVoidMethodWithoutArguments([UIColor colorWithDynamicProvider:^UIColor * _Nonnull(UITraitCollection * _Nonnull trait) {
+                return [UIColor clearColor];
+            }].class, @selector(CGColor), CGColorRef, ^CGColorRef(UIColor *selfObject, CGColorRef originReturnValue) {
+                if (selfObject.qmui_isDynamicColor) {
+                    UIColor *color = [UIColor colorWithCGColor:originReturnValue];
+                    originReturnValue = color.CGColor;
+                    [(__bridge id)(originReturnValue) qmui_bindObject:selfObject forKey:QMUICGColorOriginalColorBindKey];
+                }
+                return originReturnValue;
+            });
+        }
+#endif
+    });
+}
+
+- (BOOL)qmui_isDynamicColor {
+    if ([self respondsToSelector:@selector(_isDynamic)]) {
+        return self._isDynamic;
+    }
+    return NO;
+}
+
+- (BOOL)qmui_isQMUIDynamicColor {
+    return NO;
+}
+
+- (UIColor *)qmui_rawColor {
+    if (self.qmui_isDynamicColor) {
+#ifdef IOS13_SDK_ALLOWED
+        if (@available(iOS 13.0, *)) {
+            if ([self respondsToSelector:@selector(resolvedColorWithTraitCollection:)]) {
+                UIColor *color = [self resolvedColorWithTraitCollection:UITraitCollection.currentTraitCollection];
+                return color.qmui_rawColor;
+            }
+        }
+#endif
+    }
+    return self;
 }
 
 @end

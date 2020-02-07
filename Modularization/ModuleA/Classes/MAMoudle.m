@@ -8,7 +8,7 @@
 #import "MAMoudle.h"
 #import "BeeHive.h"
 
-BeeHiveMod(MAMoudle)
+@BeeHiveMod(MAMoudle)
 
 @interface MAMoudle() <BHModuleProtocol>
 
@@ -29,6 +29,10 @@ BeeHiveMod(MAMoudle)
 
 - (void)modSetUp:(BHContext *)context {
     NSLog(@"MAMoudle setup");
+}
+
+- (void)modOpenURL:(BHContext *)context {
+    NSLog(@"opneURL:%@",context);
 }
 
 @end

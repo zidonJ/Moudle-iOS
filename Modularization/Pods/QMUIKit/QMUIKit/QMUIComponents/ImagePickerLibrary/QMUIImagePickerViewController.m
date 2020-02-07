@@ -96,7 +96,7 @@ static QMUIImagePickerViewController *imagePickerViewControllerAppearance;
     [super initSubviews];
     
     _collectionViewLayout = [[UICollectionViewFlowLayout alloc] init];
-    CGFloat inset = PixelOne * 2;// no why, just beautiful
+    CGFloat inset = PixelOne * 2; // no why, just beautiful
     self.collectionViewLayout.sectionInset = UIEdgeInsetsMake(inset, inset, inset, inset);
     self.collectionViewLayout.minimumLineSpacing = self.collectionViewLayout.sectionInset.bottom;
     self.collectionViewLayout.minimumInteritemSpacing = self.collectionViewLayout.sectionInset.left;
@@ -249,7 +249,7 @@ static QMUIImagePickerViewController *imagePickerViewControllerAppearance;
     if (self.shouldShowDefaultLoadingView) {
         [self showEmptyViewWithLoading];
     }
-    dispatch_async(dispatch_get_global_queue(0, 0), ^{
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         [assetsGroup enumerateAssetsWithOptions:albumSortType usingBlock:^(QMUIAsset *resultAsset) {
             // 这里需要对 UI 进行操作，因此放回主线程处理
             dispatch_async(dispatch_get_main_queue(), ^{
@@ -260,7 +260,8 @@ static QMUIImagePickerViewController *imagePickerViewControllerAppearance;
                     // result 为 nil，即遍历相片或视频完毕
                     self.isImagesAssetLoaded = YES;// 这个属性的作用描述： https://github.com/Tencent/QMUI_iOS/issues/219
                     [self.collectionView reloadData];
-                    [self.collectionView performBatchUpdates:NULL completion:^(BOOL finished) {
+                    [self.collectionView performBatchUpdates:^{
+                    } completion:^(BOOL finished) {
                         [self scrollToInitialPositionIfNeeded];
                         if (self.shouldShowDefaultLoadingView) {
                           [self hideEmptyView];
@@ -285,15 +286,15 @@ static QMUIImagePickerViewController *imagePickerViewControllerAppearance;
 
 - (CGSize)referenceImageSize {
     CGFloat collectionViewWidth = CGRectGetWidth(self.collectionView.bounds);
-    CGFloat collectionViewContentSpacing = collectionViewWidth - UIEdgeInsetsGetHorizontalValue(self.collectionView.contentInset);
+    CGFloat collectionViewContentSpacing = collectionViewWidth - UIEdgeInsetsGetHorizontalValue(self.collectionView.contentInset) - UIEdgeInsetsGetHorizontalValue(self.collectionViewLayout.sectionInset);
     NSInteger columnCount = floor(collectionViewContentSpacing / self.minimumImageWidth);
     CGFloat referenceImageWidth = self.minimumImageWidth;
-    BOOL isSpacingEnoughWhenDisplayInMinImageSize = UIEdgeInsetsGetHorizontalValue(self.collectionViewLayout.sectionInset) + (self.minimumImageWidth + self.collectionViewLayout.minimumInteritemSpacing) * columnCount - self.collectionViewLayout.minimumInteritemSpacing <= collectionViewContentSpacing;
+    BOOL isSpacingEnoughWhenDisplayInMinImageSize = (self.minimumImageWidth + self.collectionViewLayout.minimumInteritemSpacing) * columnCount - self.collectionViewLayout.minimumInteritemSpacing <= collectionViewContentSpacing;
     if (!isSpacingEnoughWhenDisplayInMinImageSize) {
         // 算上图片之间的间隙后发现其实还是放不下啦，所以得把列数减少，然后放大图片以撑满剩余空间
         columnCount -= 1;
     }
-    referenceImageWidth = (collectionViewContentSpacing - UIEdgeInsetsGetHorizontalValue(self.collectionViewLayout.sectionInset) - self.collectionViewLayout.minimumInteritemSpacing * (columnCount - 1)) / columnCount;
+    referenceImageWidth = floor((collectionViewContentSpacing - self.collectionViewLayout.minimumInteritemSpacing * (columnCount - 1)) / columnCount);
     return CGSizeMake(referenceImageWidth, referenceImageWidth);
 }
 
@@ -362,7 +363,7 @@ static QMUIImagePickerViewController *imagePickerViewControllerAppearance;
         [self initPreviewViewControllerIfNeeded];
         if (!self.allowsMultipleSelection) {
             // 单选的情况下
-            [self.imagePickerPreviewViewController updateImagePickerPreviewViewWithImagesAssetArray:@[imageAsset]
+            [self.imagePickerPreviewViewController updateImagePickerPreviewViewWithImagesAssetArray:@[imageAsset].mutableCopy
                                                                         selectedImageAssetArray:nil
                                                                               currentImageIndex:0
                                                                                 singleCheckMode:YES];

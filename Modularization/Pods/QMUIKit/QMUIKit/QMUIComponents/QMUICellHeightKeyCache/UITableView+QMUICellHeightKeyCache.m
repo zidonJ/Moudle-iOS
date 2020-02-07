@@ -31,14 +31,17 @@
 + (void)load {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        SEL selectors[] = {
-            @selector(setDelegate:)
-        };
-        for (NSUInteger index = 0; index < sizeof(selectors) / sizeof(SEL); index++) {
-            SEL originalSelector = selectors[index];
-            SEL swizzledSelector = NSSelectorFromString([@"qmui_" stringByAppendingString:NSStringFromSelector(originalSelector)]);
-            ExchangeImplementations([self class], originalSelector, swizzledSelector);
-        }
+        OverrideImplementation([UITableView class], @selector(setDelegate:), ^id(__unsafe_unretained Class originClass, SEL originCMD, IMP (^originalIMPProvider)(void)) {
+            return ^(UITableView *selfObject, id<QMUITableViewDelegate> firstArgv) {
+                
+                [selfObject replaceMethodForDelegateIfNeeded:firstArgv];
+                
+                // call super
+                void (*originSelectorIMP)(id, SEL, id<QMUITableViewDelegate>);
+                originSelectorIMP = (void (*)(id, SEL, id<QMUITableViewDelegate>))originalIMPProvider();
+                originSelectorIMP(selfObject, originCMD, firstArgv);
+            };
+        });
     });
 }
 
@@ -124,11 +127,6 @@ static char kAssociatedObjectKey_qmuiAllKeyCaches;
     return UITableViewAutomaticDimension;// 表示 QMUICellHeightKeyCache 无法决定一个合适的高度，交给业务，或者交给系统默认值决定。
 }
 
-- (void)qmui_setDelegate:(id<QMUITableViewDelegate>)delegate {
-    [self replaceMethodForDelegateIfNeeded:delegate];
-    [self qmui_setDelegate:delegate];
-}
-
 static NSMutableSet<NSString *> *qmui_methodsReplacedClasses;
 - (void)replaceMethodForDelegateIfNeeded:(id<QMUITableViewDelegate>)delegate {
     if (self.qmui_cacheCellHeightByKeyAutomatically && delegate) {
@@ -171,16 +169,13 @@ static NSMutableSet<NSString *> *qmui_methodsReplacedClasses;
     
     BOOL addedSuccessfully = class_addMethod(delegate.class, willDisplayCellSelector, willDisplayCellIMP, method_getTypeEncoding(willDisplayCellMethod));
     if (!addedSuccessfully) {
-        OverrideImplementation([delegate class], willDisplayCellSelector, ^id(__unsafe_unretained Class originClass, SEL originCMD, IMP originIMP) {
+        OverrideImplementation([delegate class], willDisplayCellSelector, ^id(__unsafe_unretained Class originClass, SEL originCMD, IMP (^originalIMPProvider)(void)) {
             return ^(id<QMUITableViewDelegate> delegateSelf, UITableView *tableView, UITableViewCell *cell, NSIndexPath *indexPath) {
                 
                 // call super
                 void (*originSelectorIMP)(id<QMUITableViewDelegate>, SEL, UITableView *, UITableViewCell *, NSIndexPath *);
-                originSelectorIMP = (void (*)(id<QMUITableViewDelegate>, SEL, UITableView *, UITableViewCell *, NSIndexPath *))originIMP;
+                originSelectorIMP = (void (*)(id<QMUITableViewDelegate>, SEL, UITableView *, UITableViewCell *, NSIndexPath *))originalIMPProvider();
                 originSelectorIMP(delegateSelf, originCMD, tableView, cell, indexPath);
-                
-                // avoid superclass
-                if (![delegateSelf isKindOfClass:originClass]) return;
                 
                 // call QMUI
                 willDisplayCellFunction(delegateSelf, willDisplayCellSelector, tableView, cell, indexPath);
@@ -200,16 +195,13 @@ static NSMutableSet<NSString *> *qmui_methodsReplacedClasses;
     
     BOOL addedSuccessfully = class_addMethod([delegate class], heightForRowSelector, heightForRowIMP, method_getTypeEncoding(heightForRowMethod));
     if (!addedSuccessfully) {
-        OverrideImplementation([delegate class], heightForRowSelector, ^id(__unsafe_unretained Class originClass, SEL originCMD, IMP originIMP) {
+        OverrideImplementation([delegate class], heightForRowSelector, ^id(__unsafe_unretained Class originClass, SEL originCMD, IMP (^originalIMPProvider)(void)) {
             return ^CGFloat(id<QMUITableViewDelegate> delegateSelf, UITableView *tableView, NSIndexPath *indexPath) {
                 
                 // call super
                 CGFloat (*originSelectorIMP)(id<QMUITableViewDelegate>, SEL, UITableView *, NSIndexPath *);
-                originSelectorIMP = (CGFloat (*)(id<QMUITableViewDelegate>, SEL, UITableView *, NSIndexPath *))originIMP;
+                originSelectorIMP = (CGFloat (*)(id<QMUITableViewDelegate>, SEL, UITableView *, NSIndexPath *))originalIMPProvider();
                 CGFloat result = originSelectorIMP(delegateSelf, originCMD, tableView, indexPath);
-                
-                // avoid superclass
-                if (![delegateSelf isKindOfClass:originClass]) return result;
                 
                 if (result >= 0) {
                     return result;
@@ -233,20 +225,17 @@ static NSMutableSet<NSString *> *qmui_methodsReplacedClasses;
     
     BOOL addedSuccessfully = class_addMethod([delegate class], heightForRowSelector, heightForRowIMP, method_getTypeEncoding(heightForRowMethod));
     if (!addedSuccessfully) {
-        OverrideImplementation([delegate class], heightForRowSelector, ^id(__unsafe_unretained Class originClass, SEL originCMD, IMP originIMP) {
+        OverrideImplementation([delegate class], heightForRowSelector, ^id(__unsafe_unretained Class originClass, SEL originCMD, IMP (^originalIMPProvider)(void)) {
             return ^CGFloat(id<QMUITableViewDelegate> delegateSelf, UITableView *tableView, NSIndexPath *indexPath) {
                 
-                CGFloat result = 0;
-                if ([delegateSelf isKindOfClass:originClass]) {
-                    result = heightForRowFunction(delegateSelf, heightForRowSelector, tableView, indexPath);
-                    if (result != UITableViewAutomaticDimension) {
-                        return result;
-                    }
+                CGFloat result = heightForRowFunction(delegateSelf, heightForRowSelector, tableView, indexPath);
+                if (result != UITableViewAutomaticDimension) {
+                    return result;
                 }
                 
                 // call super
                 CGFloat (*originSelectorIMP)(id<QMUITableViewDelegate>, SEL, UITableView *, NSIndexPath *);
-                originSelectorIMP = (CGFloat (*)(id<QMUITableViewDelegate>, SEL, UITableView *, NSIndexPath *))originIMP;
+                originSelectorIMP = (CGFloat (*)(id<QMUITableViewDelegate>, SEL, UITableView *, NSIndexPath *))originalIMPProvider();
                 result = originSelectorIMP(delegateSelf, originCMD, tableView, indexPath);
                 return result;
             };

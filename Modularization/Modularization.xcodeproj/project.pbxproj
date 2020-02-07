@@ -3,11 +3,19 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 50;
+	objectVersion = 51;
 	objects = {
 
 /* Begin PBXBuildFile section */
 		089350AB02247AA4DAEA93A4 /* libPods-Modularization.a in Frameworks */ = {isa = PBXBuildFile; fileRef = B1ECB22B48E0F9DADA4407C7 /* libPods-Modularization.a */; };
+		D197F89F23ED394E003BC47C /* ModularizationCenter.m in Sources */ = {isa = PBXBuildFile; fileRef = D197F89E23ED394E003BC47C /* ModularizationCenter.m */; };
+		D197F8C623ED56BC003BC47C /* ZDRouteResponse.m in Sources */ = {isa = PBXBuildFile; fileRef = D197F8BA23ED56B9003BC47C /* ZDRouteResponse.m */; };
+		D197F8C723ED56BC003BC47C /* ZDRouteHandler.m in Sources */ = {isa = PBXBuildFile; fileRef = D197F8BB23ED56BA003BC47C /* ZDRouteHandler.m */; };
+		D197F8C823ED56BC003BC47C /* ZDRoutes.m in Sources */ = {isa = PBXBuildFile; fileRef = D197F8BC23ED56BA003BC47C /* ZDRoutes.m */; };
+		D197F8C923ED56BC003BC47C /* ZDParsingUtilities.m in Sources */ = {isa = PBXBuildFile; fileRef = D197F8BF23ED56BB003BC47C /* ZDParsingUtilities.m */; };
+		D197F8CA23ED56BC003BC47C /* ZDRouteRequest.m in Sources */ = {isa = PBXBuildFile; fileRef = D197F8C123ED56BB003BC47C /* ZDRouteRequest.m */; };
+		D197F8CB23ED56BC003BC47C /* ZDRouteDefinition.m in Sources */ = {isa = PBXBuildFile; fileRef = D197F8C323ED56BC003BC47C /* ZDRouteDefinition.m */; };
+		D197F8CE23ED5763003BC47C /* NSObject+ZDRouter.m in Sources */ = {isa = PBXBuildFile; fileRef = D197F8CD23ED5763003BC47C /* NSObject+ZDRouter.m */; };
 		DC8C48EA2213AD5500AF7310 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = DC8C48E92213AD5500AF7310 /* AppDelegate.m */; };
 		DC8C48ED2213AD5500AF7310 /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = DC8C48EC2213AD5500AF7310 /* ViewController.m */; };
 		DC8C48F02213AD5500AF7310 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = DC8C48EE2213AD5500AF7310 /* Main.storyboard */; };
@@ -21,6 +29,23 @@
 /* Begin PBXFileReference section */
 		4471BC4E63B6B4830CA5066B /* Pods-Modularization.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Modularization.release.xcconfig"; path = "Target Support Files/Pods-Modularization/Pods-Modularization.release.xcconfig"; sourceTree = "<group>"; };
 		B1ECB22B48E0F9DADA4407C7 /* libPods-Modularization.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Modularization.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		D197F89D23ED394E003BC47C /* ModularizationCenter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ModularizationCenter.h; sourceTree = "<group>"; };
+		D197F89E23ED394E003BC47C /* ModularizationCenter.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ModularizationCenter.m; sourceTree = "<group>"; };
+		D197F8B923ED56B9003BC47C /* ZDParsingUtilities.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZDParsingUtilities.h; sourceTree = "<group>"; };
+		D197F8BA23ED56B9003BC47C /* ZDRouteResponse.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ZDRouteResponse.m; sourceTree = "<group>"; };
+		D197F8BB23ED56BA003BC47C /* ZDRouteHandler.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ZDRouteHandler.m; sourceTree = "<group>"; };
+		D197F8BC23ED56BA003BC47C /* ZDRoutes.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ZDRoutes.m; sourceTree = "<group>"; };
+		D197F8BD23ED56BA003BC47C /* ZDRouteHandler.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZDRouteHandler.h; sourceTree = "<group>"; };
+		D197F8BE23ED56BA003BC47C /* ZDRouteResponse.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZDRouteResponse.h; sourceTree = "<group>"; };
+		D197F8BF23ED56BB003BC47C /* ZDParsingUtilities.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ZDParsingUtilities.m; sourceTree = "<group>"; };
+		D197F8C023ED56BB003BC47C /* ZDRouter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZDRouter.h; sourceTree = "<group>"; };
+		D197F8C123ED56BB003BC47C /* ZDRouteRequest.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ZDRouteRequest.m; sourceTree = "<group>"; };
+		D197F8C223ED56BB003BC47C /* ZDRouteRequest.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZDRouteRequest.h; sourceTree = "<group>"; };
+		D197F8C323ED56BC003BC47C /* ZDRouteDefinition.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ZDRouteDefinition.m; sourceTree = "<group>"; };
+		D197F8C423ED56BC003BC47C /* ZDRouteDefinition.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZDRouteDefinition.h; sourceTree = "<group>"; };
+		D197F8C523ED56BC003BC47C /* ZDRoutes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZDRoutes.h; sourceTree = "<group>"; };
+		D197F8CC23ED5763003BC47C /* NSObject+ZDRouter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "NSObject+ZDRouter.h"; sourceTree = "<group>"; };
+		D197F8CD23ED5763003BC47C /* NSObject+ZDRouter.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "NSObject+ZDRouter.m"; sourceTree = "<group>"; };
 		D3C1725A7259425DF33959D6 /* Pods-Modularization.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Modularization.debug.xcconfig"; path = "Target Support Files/Pods-Modularization/Pods-Modularization.debug.xcconfig"; sourceTree = "<group>"; };
 		DC8C48E52213AD5500AF7310 /* Modularization.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Modularization.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DC8C48E82213AD5500AF7310 /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
@@ -89,16 +114,33 @@
 			children = (
 				DC8C48E82213AD5500AF7310 /* AppDelegate.h */,
 				DC8C48E92213AD5500AF7310 /* AppDelegate.m */,
+				DC8C48F12213AD5700AF7310 /* Assets.xcassets */,
+				DCE00A95221FF95E0007A0D3 /* Beehive_t.bundle */,
+				DC8C48F62213AD5700AF7310 /* Info.plist */,
+				DC8C48F32213AD5700AF7310 /* LaunchScreen.storyboard */,
+				DC8C48F72213AD5700AF7310 /* main.m */,
+				DC8C48EE2213AD5500AF7310 /* Main.storyboard */,
+				D197F89D23ED394E003BC47C /* ModularizationCenter.h */,
+				D197F89E23ED394E003BC47C /* ModularizationCenter.m */,
 				DC8C49772216A25900AF7310 /* ModuleTabBarController.h */,
 				DC8C49782216A25900AF7310 /* ModuleTabBarController.m */,
 				DC8C48EB2213AD5500AF7310 /* ViewController.h */,
 				DC8C48EC2213AD5500AF7310 /* ViewController.m */,
-				DC8C48EE2213AD5500AF7310 /* Main.storyboard */,
-				DCE00A95221FF95E0007A0D3 /* Beehive_t.bundle */,
-				DC8C48F12213AD5700AF7310 /* Assets.xcassets */,
-				DC8C48F32213AD5700AF7310 /* LaunchScreen.storyboard */,
-				DC8C48F62213AD5700AF7310 /* Info.plist */,
-				DC8C48F72213AD5700AF7310 /* main.m */,
+				D197F8CC23ED5763003BC47C /* NSObject+ZDRouter.h */,
+				D197F8CD23ED5763003BC47C /* NSObject+ZDRouter.m */,
+				D197F8B923ED56B9003BC47C /* ZDParsingUtilities.h */,
+				D197F8BF23ED56BB003BC47C /* ZDParsingUtilities.m */,
+				D197F8C423ED56BC003BC47C /* ZDRouteDefinition.h */,
+				D197F8C323ED56BC003BC47C /* ZDRouteDefinition.m */,
+				D197F8BD23ED56BA003BC47C /* ZDRouteHandler.h */,
+				D197F8BB23ED56BA003BC47C /* ZDRouteHandler.m */,
+				D197F8C023ED56BB003BC47C /* ZDRouter.h */,
+				D197F8C223ED56BB003BC47C /* ZDRouteRequest.h */,
+				D197F8C123ED56BB003BC47C /* ZDRouteRequest.m */,
+				D197F8BE23ED56BA003BC47C /* ZDRouteResponse.h */,
+				D197F8BA23ED56B9003BC47C /* ZDRouteResponse.m */,
+				D197F8C523ED56BC003BC47C /* ZDRoutes.h */,
+				D197F8BC23ED56BA003BC47C /* ZDRoutes.m */,
 			);
 			path = Modularization;
 			sourceTree = "<group>";
@@ -114,7 +156,7 @@
 				DC8C48E12213AD5500AF7310 /* Sources */,
 				DC8C48E22213AD5500AF7310 /* Frameworks */,
 				DC8C48E32213AD5500AF7310 /* Resources */,
-				25C2DB32E083EB73EBA337E8 /* [CP] Copy Pods Resources */,
+				8FB5318ECF2A803A01365935 /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
 			);
@@ -173,30 +215,6 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		25C2DB32E083EB73EBA337E8 /* [CP] Copy Pods Resources */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-Modularization/Pods-Modularization-resources.sh",
-				"${PODS_ROOT}/BeeHive/BeeHive/BeeHive.bundle",
-				"${PODS_ROOT}/QMUIKit/QMUIKit/QMUIResources/QMUIResources.bundle",
-			);
-			name = "[CP] Copy Pods Resources";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/BeeHive.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/QMUIResources.bundle",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Modularization/Pods-Modularization-resources.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
 		4C8E1C2FCA8054179A48B106 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -219,6 +237,23 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
+		8FB5318ECF2A803A01365935 /* [CP] Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Modularization/Pods-Modularization-resources-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Copy Pods Resources";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Modularization/Pods-Modularization-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Modularization/Pods-Modularization-resources.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -226,10 +261,18 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D197F8C623ED56BC003BC47C /* ZDRouteResponse.m in Sources */,
+				D197F89F23ED394E003BC47C /* ModularizationCenter.m in Sources */,
 				DC8C48ED2213AD5500AF7310 /* ViewController.m in Sources */,
 				DC8C49792216A25900AF7310 /* ModuleTabBarController.m in Sources */,
+				D197F8C923ED56BC003BC47C /* ZDParsingUtilities.m in Sources */,
+				D197F8CB23ED56BC003BC47C /* ZDRouteDefinition.m in Sources */,
+				D197F8CA23ED56BC003BC47C /* ZDRouteRequest.m in Sources */,
 				DC8C48F82213AD5700AF7310 /* main.m in Sources */,
+				D197F8CE23ED5763003BC47C /* NSObject+ZDRouter.m in Sources */,
+				D197F8C823ED56BC003BC47C /* ZDRoutes.m in Sources */,
 				DC8C48EA2213AD5500AF7310 /* AppDelegate.m in Sources */,
+				D197F8C723ED56BC003BC47C /* ZDRouteHandler.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

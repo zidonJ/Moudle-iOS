@@ -17,6 +17,7 @@
 #import "UIView+QMUI.h"
 #import "QMUICore.h"
 #import "QMUILog.h"
+#import "UIColor+QMUI.h"
 
 @interface CALayer ()
 
@@ -32,18 +33,89 @@ QMUISynthesizeCGFloatProperty(qmui_originCornerRadius, setQmui_originCornerRadiu
 + (void)load {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        SEL selectors[] = {
-            @selector(init),
-            @selector(setBounds:),
-            @selector(setPosition:),
-            @selector(setCornerRadius:)
-        };
-        for (NSUInteger index = 0; index < sizeof(selectors) / sizeof(SEL); index++) {
-            SEL originalSelector = selectors[index];
-            SEL swizzledSelector = NSSelectorFromString([@"qmuilayer_" stringByAppendingString:NSStringFromSelector(originalSelector)]);
-            ExchangeImplementations([self class], originalSelector, swizzledSelector);
-        }
+        
+        // 由于其他方法需要通过调用 qmuilayer_setCornerRadius: 来执行 swizzle 前的实现，所以这里暂时用 ExchangeImplementations
+        ExchangeImplementations([CALayer class], @selector(setCornerRadius:), @selector(qmuilayer_setCornerRadius:));
+        
+        ExtendImplementationOfNonVoidMethodWithoutArguments([CALayer class], @selector(init), CALayer *, ^CALayer *(CALayer *selfObject, CALayer *originReturnValue) {
+            selfObject.qmui_speedBeforePause = selfObject.speed;
+            selfObject.qmui_maskedCorners = QMUILayerMinXMinYCorner|QMUILayerMaxXMinYCorner|QMUILayerMinXMaxYCorner|QMUILayerMaxXMaxYCorner;
+            return originReturnValue;
+        });
+        
+        OverrideImplementation([CALayer class], @selector(setBounds:), ^id(__unsafe_unretained Class originClass, SEL originCMD, IMP (^originalIMPProvider)(void)) {
+            return ^(CALayer *selfObject, CGRect bounds) {
+                
+                // 对非法的 bounds，Debug 下中 assert，Release 下会将其中的 NaN 改为 0，避免 crash
+                if (CGRectIsNaN(bounds)) {
+                    QMUILogWarn(@"CALayer (QMUI)", @"%@ setBounds:%@，参数包含 NaN，已被拦截并处理为 0。%@", selfObject, NSStringFromCGRect(bounds), [NSThread callStackSymbols]);
+                    if (QMUICMIActivated && !ShouldPrintQMUIWarnLogToConsole) {
+                        NSAssert(NO, @"CALayer setBounds: 出现 NaN");
+                    }
+                    if (!IS_DEBUG) {
+                        bounds = CGRectSafeValue(bounds);
+                    }
+                }
+                
+                // call super
+                void (*originSelectorIMP)(id, SEL, CGRect);
+                originSelectorIMP = (void (*)(id, SEL, CGRect))originalIMPProvider();
+                originSelectorIMP(selfObject, originCMD, bounds);
+            };
+        });
+        
+        OverrideImplementation([CALayer class], @selector(setPosition:), ^id(__unsafe_unretained Class originClass, SEL originCMD, IMP (^originalIMPProvider)(void)) {
+            return ^(CALayer *selfObject, CGPoint position) {
+                
+                // 对非法的 position，Debug 下中 assert，Release 下会将其中的 NaN 改为 0，避免 crash
+                if (isnan(position.x) || isnan(position.y)) {
+                    QMUILogWarn(@"CALayer (QMUI)", @"%@ setPosition:%@，参数包含 NaN，已被拦截并处理为 0。%@", selfObject, NSStringFromCGPoint(position), [NSThread callStackSymbols]);
+                    if (QMUICMIActivated && !ShouldPrintQMUIWarnLogToConsole) {
+                        NSAssert(NO, @"CALayer setPosition: 出现 NaN");
+                    }
+                    if (!IS_DEBUG) {
+                        position = CGPointMake(CGFloatSafeValue(position.x), CGFloatSafeValue(position.y));
+                    }
+                }
+                
+                // call super
+                void (*originSelectorIMP)(id, SEL, CGPoint);
+                originSelectorIMP = (void (*)(id, SEL, CGPoint))originalIMPProvider();
+                originSelectorIMP(selfObject, originCMD, position);
+            };
+        });
     });
+}
+
+- (BOOL)qmui_isRootLayerOfView {
+    return [self.delegate isKindOfClass:[UIView class]] && ((UIView *)self.delegate).layer == self;
+}
+
+- (void)qmuilayer_setCornerRadius:(CGFloat)cornerRadius {
+    BOOL cornerRadiusChanged = flat(self.qmui_originCornerRadius) != flat(cornerRadius);// flat 处理，避免浮点精度问题
+    self.qmui_originCornerRadius = cornerRadius;
+    if (@available(iOS 11, *)) {
+        [self qmuilayer_setCornerRadius:cornerRadius];
+    } else {
+        if (self.qmui_maskedCorners && ![self hasFourCornerRadius]) {
+            [self qmuilayer_setCornerRadius:0];
+        } else {
+            [self qmuilayer_setCornerRadius:cornerRadius];
+        }
+        if (cornerRadiusChanged) {
+            // 需要刷新mask
+            [self setNeedsLayout];
+        }
+    }
+    if (cornerRadiusChanged) {
+        // 需要刷新border
+        if ([self.delegate respondsToSelector:@selector(layoutSublayersOfLayer:)]) {
+            UIView *view = (UIView *)self.delegate;
+            if (view.qmui_borderPosition > 0 && view.qmui_borderWidth > 0) {
+                [view layoutSublayersOfLayer:self];
+            }
+        }
+    }
 }
 
 static char kAssociatedObjectKey_pause;
@@ -105,68 +177,6 @@ static char kAssociatedObjectKey_maskedCorners;
 
 - (QMUICornerMask)qmui_maskedCorners {
     return [objc_getAssociatedObject(self, &kAssociatedObjectKey_maskedCorners) unsignedIntegerValue];
-} 
-
-- (instancetype)qmuilayer_init {
-    [self qmuilayer_init];
-    self.qmui_speedBeforePause = self.speed;
-    self.qmui_maskedCorners = QMUILayerMinXMinYCorner|QMUILayerMaxXMinYCorner|QMUILayerMinXMaxYCorner|QMUILayerMaxXMaxYCorner;
-    return self;
-}
-
-- (void)qmuilayer_setBounds:(CGRect)bounds {
-    // 对非法的 bounds，Debug 下中 assert，Release 下会将其中的 NaN 改为 0，避免 crash
-    if (CGRectIsNaN(bounds)) {
-        QMUILogWarn(@"CALayer (QMUI)", @"%@ setBounds:%@，参数包含 NaN，已被拦截并处理为 0。%@", self, NSStringFromCGRect(bounds), [NSThread callStackSymbols]);
-        if (QMUICMIActivated && !ShouldPrintQMUIWarnLogToConsole) {
-            NSAssert(NO, @"CALayer setBounds: 出现 NaN");
-        }
-        if (!IS_DEBUG) {
-            bounds = CGRectSafeValue(bounds);
-        }
-    }
-    [self qmuilayer_setBounds:bounds];
-}
-
-- (void)qmuilayer_setPosition:(CGPoint)position {
-    // 对非法的 position，Debug 下中 assert，Release 下会将其中的 NaN 改为 0，避免 crash
-    if (isnan(position.x) || isnan(position.y)) {
-        QMUILogWarn(@"CALayer (QMUI)", @"%@ setPosition:%@，参数包含 NaN，已被拦截并处理为 0。%@", self, NSStringFromCGPoint(position), [NSThread callStackSymbols]);
-        if (QMUICMIActivated && !ShouldPrintQMUIWarnLogToConsole) {
-            NSAssert(NO, @"CALayer setPosition: 出现 NaN");
-        }
-        if (!IS_DEBUG) {
-            position = CGPointMake(CGFloatSafeValue(position.x), CGFloatSafeValue(position.y));
-        }
-    }
-    [self qmuilayer_setPosition:position];
-}
-
-- (void)qmuilayer_setCornerRadius:(CGFloat)cornerRadius {
-    BOOL cornerRadiusChanged = flat(self.qmui_originCornerRadius) != flat(cornerRadius);// flat 处理，避免浮点精度问题
-    self.qmui_originCornerRadius = cornerRadius;
-    if (@available(iOS 11, *)) {
-        [self qmuilayer_setCornerRadius:cornerRadius];
-    } else {
-        if (self.qmui_maskedCorners && ![self hasFourCornerRadius]) {
-            [self qmuilayer_setCornerRadius:0];
-        } else {
-            [self qmuilayer_setCornerRadius:cornerRadius];
-        }
-        if (cornerRadiusChanged) {
-            // 需要刷新mask
-            [self setNeedsLayout];
-        }
-    }
-    if (cornerRadiusChanged) {
-        // 需要刷新border
-        if ([self.delegate respondsToSelector:@selector(layoutSublayersOfLayer:)]) {
-            UIView *view = (UIView *)self.delegate;
-            if (view.qmui_borderPosition > 0 && view.qmui_borderWidth > 0) {
-                [view layoutSublayersOfLayer:self];
-            }
-        }
-    }
 }
 
 - (void)qmui_sendSublayerToBack:(CALayer *)sublayer {
@@ -238,6 +248,14 @@ static char kAssociatedObjectKey_maskedCorners;
     self.actions = actions;
 }
 
++ (void)qmui_performWithoutAnimation:(void (NS_NOESCAPE ^)(void))actionsWithoutAnimation {
+    if (!actionsWithoutAnimation) return;
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+    actionsWithoutAnimation();
+    [CATransaction commit];
+}
+
 + (CAShapeLayer *)qmui_separatorDashLayerWithLineLength:(NSInteger)lineLength
                                             lineSpacing:(NSInteger)lineSpacing
                                               lineWidth:(CGFloat)lineWidth
@@ -297,56 +315,49 @@ static char kAssociatedObjectKey_maskedCorners;
 
 @end
 
-@interface UIView (QMUI_CornerRadius)
-
-@end
-
 @implementation UIView (QMUI_CornerRadius)
+
+static NSString *kMaskName = @"QMUI_CornerRadius_Mask";
 
 + (void)load {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        ExchangeImplementations([self class], @selector(layoutSublayersOfLayer:), @selector(QMUICornerRadius_layoutSublayersOfLayer:));
-    });
-}
-
-static NSString *kMaskName = @"QMUI_CornerRadius_Mask";
-
-- (void)QMUICornerRadius_layoutSublayersOfLayer:(CALayer *)layer {
-    [self QMUICornerRadius_layoutSublayersOfLayer:layer];
-    if (@available(iOS 11, *)) {
-    } else {
-        if (self.layer.mask && ![self.layer.mask.name isEqualToString:kMaskName]) {
-            return;
-        }
-        if (self.layer.qmui_maskedCorners) {
-            if (self.layer.qmui_originCornerRadius <= 0 || [self hasFourCornerRadius]) {
-                if (self.layer.mask) {
-                    self.layer.mask = nil;
-                }
+        ExtendImplementationOfVoidMethodWithSingleArgument([UIView class], @selector(layoutSublayersOfLayer:), CALayer *, ^(UIView *selfObject, CALayer *layer) {
+            if (@available(iOS 11, *)) {
             } else {
-                CAShapeLayer *cornerMaskLayer = [CAShapeLayer layer];
-                cornerMaskLayer.name = kMaskName;
-                UIRectCorner rectCorner = 0;
-                if ((self.layer.qmui_maskedCorners & QMUILayerMinXMinYCorner) == QMUILayerMinXMinYCorner) {
-                    rectCorner |= UIRectCornerTopLeft;
+                if (selfObject.layer.mask && ![selfObject.layer.mask.name isEqualToString:kMaskName]) {
+                    return;
                 }
-                if ((self.layer.qmui_maskedCorners & QMUILayerMaxXMinYCorner) == QMUILayerMaxXMinYCorner) {
-                    rectCorner |= UIRectCornerTopRight;
+                if (selfObject.layer.qmui_maskedCorners) {
+                    if (selfObject.layer.qmui_originCornerRadius <= 0 || [selfObject hasFourCornerRadius]) {
+                        if (selfObject.layer.mask) {
+                            selfObject.layer.mask = nil;
+                        }
+                    } else {
+                        CAShapeLayer *cornerMaskLayer = [CAShapeLayer layer];
+                        cornerMaskLayer.name = kMaskName;
+                        UIRectCorner rectCorner = 0;
+                        if ((selfObject.layer.qmui_maskedCorners & QMUILayerMinXMinYCorner) == QMUILayerMinXMinYCorner) {
+                            rectCorner |= UIRectCornerTopLeft;
+                        }
+                        if ((selfObject.layer.qmui_maskedCorners & QMUILayerMaxXMinYCorner) == QMUILayerMaxXMinYCorner) {
+                            rectCorner |= UIRectCornerTopRight;
+                        }
+                        if ((selfObject.layer.qmui_maskedCorners & QMUILayerMinXMaxYCorner) == QMUILayerMinXMaxYCorner) {
+                            rectCorner |= UIRectCornerBottomLeft;
+                        }
+                        if ((selfObject.layer.qmui_maskedCorners & QMUILayerMaxXMaxYCorner) == QMUILayerMaxXMaxYCorner) {
+                            rectCorner |= UIRectCornerBottomRight;
+                        }
+                        UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:selfObject.bounds byRoundingCorners:rectCorner cornerRadii:CGSizeMake(selfObject.layer.qmui_originCornerRadius, selfObject.layer.qmui_originCornerRadius)];
+                        cornerMaskLayer.frame = CGRectMakeWithSize(selfObject.bounds.size);
+                        cornerMaskLayer.path = path.CGPath;
+                        selfObject.layer.mask = cornerMaskLayer;
+                    }
                 }
-                if ((self.layer.qmui_maskedCorners & QMUILayerMinXMaxYCorner) == QMUILayerMinXMaxYCorner) {
-                    rectCorner |= UIRectCornerBottomLeft;
-                }
-                if ((self.layer.qmui_maskedCorners & QMUILayerMaxXMaxYCorner) == QMUILayerMaxXMaxYCorner) {
-                    rectCorner |= UIRectCornerBottomRight;
-                }
-                UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:self.bounds byRoundingCorners:rectCorner cornerRadii:CGSizeMake(self.layer.qmui_originCornerRadius, self.layer.qmui_originCornerRadius)];
-                cornerMaskLayer.frame = self.bounds;
-                cornerMaskLayer.path = path.CGPath;
-                self.layer.mask = cornerMaskLayer;
             }
-        }
-    }
+        });
+    });
 }
                 
 - (BOOL)hasFourCornerRadius {
@@ -354,6 +365,122 @@ static NSString *kMaskName = @"QMUI_CornerRadius_Mask";
            (self.layer.qmui_maskedCorners & QMUILayerMaxXMinYCorner) == QMUILayerMaxXMinYCorner &&
            (self.layer.qmui_maskedCorners & QMUILayerMinXMaxYCorner) == QMUILayerMinXMaxYCorner &&
            (self.layer.qmui_maskedCorners & QMUILayerMaxXMaxYCorner) == QMUILayerMaxXMaxYCorner;
+}
+
+@end
+
+@interface CAShapeLayer (QMUI_DynamicColor)
+
+@property(nonatomic, strong) UIColor *qcl_originalFillColor;
+@property(nonatomic, strong) UIColor *qcl_originalStrokeColor;
+
+@end
+
+@implementation CAShapeLayer (QMUI_DynamicColor)
+
+QMUISynthesizeIdStrongProperty(qcl_originalFillColor, setQcl_originalFillColor)
+QMUISynthesizeIdStrongProperty(qcl_originalStrokeColor, setQcl_originalStrokeColor)
+
++ (void)load {
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        OverrideImplementation([CAShapeLayer class], @selector(setFillColor:), ^id(__unsafe_unretained Class originClass, SEL originCMD, IMP (^originalIMPProvider)(void)) {
+            return ^(CAShapeLayer *selfObject, CGColorRef color) {
+                
+                UIColor *originalColor = [(__bridge id)(color) qmui_getBoundObjectForKey:QMUICGColorOriginalColorBindKey];
+                selfObject.qcl_originalFillColor = originalColor;
+                
+                // call super
+                void (*originSelectorIMP)(id, SEL, CGColorRef);
+                originSelectorIMP = (void (*)(id, SEL, CGColorRef))originalIMPProvider();
+                originSelectorIMP(selfObject, originCMD, color);
+            };
+        });
+        
+        OverrideImplementation([CAShapeLayer class], @selector(setStrokeColor:), ^id(__unsafe_unretained Class originClass, SEL originCMD, IMP (^originalIMPProvider)(void)) {
+            return ^(CAShapeLayer *selfObject, CGColorRef color) {
+                
+                UIColor *originalColor = [(__bridge id)(color) qmui_getBoundObjectForKey:QMUICGColorOriginalColorBindKey];
+                selfObject.qcl_originalStrokeColor = originalColor;
+                
+                // call super
+                void (*originSelectorIMP)(id, SEL, CGColorRef);
+                originSelectorIMP = (void (*)(id, SEL, CGColorRef))originalIMPProvider();
+                originSelectorIMP(selfObject, originCMD, color);
+            };
+        });
+    });
+}
+
+- (void)qmui_setNeedsUpdateDynamicStyle {
+    [super qmui_setNeedsUpdateDynamicStyle];
+    
+    if (self.qcl_originalFillColor) {
+        self.fillColor = self.qcl_originalFillColor.CGColor;
+    }
+    
+    if (self.qcl_originalStrokeColor) {
+        self.strokeColor = self.qcl_originalStrokeColor.CGColor;
+    }
+}
+
+@end
+
+@interface CAGradientLayer (QMUI_DynamicColor)
+
+@property(nonatomic, strong) NSArray <UIColor *>* qcl_originalColors;
+
+@end
+
+@implementation CAGradientLayer (QMUI_DynamicColor)
+
+QMUISynthesizeIdStrongProperty(qcl_originalColors, setQcl_originalColors)
+
++ (void)load {
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        OverrideImplementation([CAGradientLayer class], @selector(setColors:), ^id(__unsafe_unretained Class originClass, SEL originCMD, IMP (^originalIMPProvider)(void)) {
+            return ^(CAGradientLayer *selfObject, NSArray *colors) {
+                
+           
+                void (*originSelectorIMP)(id, SEL, NSArray *);
+                originSelectorIMP = (void (*)(id, SEL, NSArray *))originalIMPProvider();
+                originSelectorIMP(selfObject, originCMD, colors);
+                
+                
+                __block BOOL hasDynamicColor = NO;
+                NSMutableArray *originalColors = [NSMutableArray array];
+                [colors enumerateObjectsUsingBlock:^(id color, NSUInteger idx, BOOL * _Nonnull stop) {
+                    UIColor *originalColor = [color qmui_getBoundObjectForKey:QMUICGColorOriginalColorBindKey];
+                    if (originalColor) {
+                        hasDynamicColor = YES;
+                        [originalColors addObject:originalColor];
+                    } else {
+                        [originalColors addObject:[UIColor colorWithCGColor:(__bridge CGColorRef _Nonnull)(color)]];
+                    }
+                }];
+                
+                if (hasDynamicColor) {
+                    selfObject.qcl_originalColors = originalColors;
+                } else {
+                    selfObject.qcl_originalColors = nil;
+                }
+                
+            };
+        });
+    });
+}
+
+- (void)qmui_setNeedsUpdateDynamicStyle {
+    [super qmui_setNeedsUpdateDynamicStyle];
+    
+    if (self.qcl_originalColors) {
+        NSMutableArray *colors = [NSMutableArray array];
+        [self.qcl_originalColors enumerateObjectsUsingBlock:^(UIColor * _Nonnull color, NSUInteger idx, BOOL * _Nonnull stop) {
+            [colors addObject:(__bridge id _Nonnull)(color.CGColor)];
+        }];
+        self.colors = colors;
+    }
 }
 
 @end

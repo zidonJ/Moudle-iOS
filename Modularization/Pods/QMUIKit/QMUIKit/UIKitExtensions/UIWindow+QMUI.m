@@ -23,29 +23,34 @@ QMUISynthesizeBOOLProperty(qmui_capturesStatusBarAppearance, setQmui_capturesSta
 + (void)load {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        SEL selectors[] = {
-            @selector(initWithFrame:),
-            NSSelectorFromString([NSString stringWithFormat:@"_%@%@%@", @"canAffect", @"StatusBar", @"Appearance"])
-        };
-        for (NSUInteger index = 0; index < sizeof(selectors) / sizeof(SEL); index++) {
-            SEL originalSelector = selectors[index];
-            SEL swizzledSelector = NSSelectorFromString([@"qmuiWindow_" stringByAppendingString:NSStringFromSelector(originalSelector)]);
-            ExchangeImplementations([self class], originalSelector, swizzledSelector);
+        
+        ExtendImplementationOfNonVoidMethodWithSingleArgument([UIWindow class], @selector(initWithFrame:), CGRect, UIWindow *, ^UIWindow *(UIWindow *selfObject, CGRect frame, UIWindow *originReturnValue) {
+            selfObject.qmui_capturesStatusBarAppearance = YES;
+            return originReturnValue;
+        });
+        
+        if (@available(iOS 13.0, *)) {
+            ExtendImplementationOfNonVoidMethodWithSingleArgument([UIWindow class], @selector(initWithWindowScene:), UIWindowScene *, UIWindow *, ^UIWindow *(UIWindow *selfObject, UIWindowScene *windowScene, UIWindow *originReturnValue) {
+                selfObject.qmui_capturesStatusBarAppearance = YES;
+                return originReturnValue;
+            });
         }
+        
+        OverrideImplementation([UIWindow class], NSSelectorFromString([NSString stringWithFormat:@"_%@%@%@", @"canAffect", @"StatusBar", @"Appearance"]), ^id(__unsafe_unretained Class originClass, SEL originCMD, IMP (^originalIMPProvider)(void)) {
+            return ^BOOL(UIWindow *selfObject) {
+                
+                if (selfObject.qmui_capturesStatusBarAppearance) {
+                    // call super
+                    BOOL (*originSelectorIMP)(id, SEL);
+                    originSelectorIMP = (BOOL (*)(id, SEL))originalIMPProvider();
+                    BOOL result = originSelectorIMP(selfObject, originCMD);
+                    return result;
+                }
+                
+                return NO;
+            };
+        });
     });
-}
-
-- (instancetype)qmuiWindow_initWithFrame:(CGRect)frame {
-    [self qmuiWindow_initWithFrame:frame];
-    self.qmui_capturesStatusBarAppearance = YES;
-    return self;
-}
-
-- (BOOL)qmuiWindow__canAffectStatusBarAppearance {
-    if (self.qmui_capturesStatusBarAppearance) {
-        return [self qmuiWindow__canAffectStatusBarAppearance];
-    }
-    return NO;
 }
 
 @end

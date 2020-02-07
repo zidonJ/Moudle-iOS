@@ -8,7 +8,7 @@
 #import "MBMoudle.h"
 #import "BeeHive.h"
 
-BeeHiveMod(MBMoudle)
+@BeeHiveMod(MBMoudle)
 @interface MBMoudle() <BHModuleProtocol>
 
 @end

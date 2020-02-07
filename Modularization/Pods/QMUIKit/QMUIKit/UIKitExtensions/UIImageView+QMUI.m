@@ -20,6 +20,7 @@
 
 @interface UIImageView ()
 
+@property(nonatomic, strong) CALayer *qimgv_animatedImageLayer;
 @property(nonatomic, strong) CADisplayLink *qimgv_displayLink;
 @property(nonatomic, strong) UIImage *qimgv_animatedImage;
 @property(nonatomic, assign) NSInteger qimgv_currentAnimatedImageIndex;
@@ -27,6 +28,7 @@
 
 @implementation UIImageView (QMUI)
 
+QMUISynthesizeIdStrongProperty(qimgv_animatedImageLayer, setQimgv_animatedImageLayer)
 QMUISynthesizeIdStrongProperty(qimgv_displayLink, setQimgv_displayLink)
 QMUISynthesizeIdStrongProperty(qimgv_animatedImage, setQimgv_animatedImage)
 QMUISynthesizeNSIntegerProperty(qimgv_currentAnimatedImageIndex, setQimgv_currentAnimatedImageIndex)
@@ -34,79 +36,116 @@ QMUISynthesizeNSIntegerProperty(qimgv_currentAnimatedImageIndex, setQimgv_curren
 + (void)load {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        SEL selectors[] = {
-            @selector(initWithImage:),
-            @selector(initWithImage:highlightedImage:),
-            @selector(initWithFrame:),
-            @selector(initWithCoder:),
-            @selector(setImage:),
-            @selector(image),
-            @selector(displayLayer:),
-            @selector(didMoveToWindow),
-            @selector(setHidden:),
-            @selector(setAlpha:),
-            @selector(setFrame:)
-        };
-        for (NSUInteger index = 0; index < sizeof(selectors) / sizeof(SEL); index++) {
-            SEL originalSelector = selectors[index];
-            SEL swizzledSelector = NSSelectorFromString([@"qimgv_" stringByAppendingString:NSStringFromSelector(originalSelector)]);
-            ExchangeImplementations([self class], originalSelector, swizzledSelector);
-        }
+        
+        // 虽然 UIImageView.h 里并没有把两个 initWithImage: 方法标记为 NS_DESIGNATED_INITIALIZER，但实测它们就是 NS_DESIGNATED_INITIALIZER，不会互相调用，也不会调用 initWithFrame:、initWithCoder:
+        ExtendImplementationOfNonVoidMethodWithSingleArgument([UIImageView class], @selector(initWithImage:), UIImage *, UIImageView *, ^UIImageView *(UIImageView *selfObject, UIImage *image, UIImageView *originReturnValue) {
+            [selfObject qimgv_didInitialize];
+            return originReturnValue;
+        });
+        ExtendImplementationOfNonVoidMethodWithTwoArguments([UIImageView class], @selector(initWithImage:highlightedImage:), UIImage *, UIImage *, UIImageView *, ^UIImageView *(UIImageView *selfObject, UIImage *image, UIImage *highlightedImage, UIImageView *originReturnValue) {
+            [selfObject qimgv_didInitialize];
+            return originReturnValue;
+        });
+        
+        ExtendImplementationOfNonVoidMethodWithSingleArgument([UIImageView class], @selector(initWithFrame:), CGRect, UIImageView *, ^UIImageView *(UIImageView *selfObject, CGRect frame, UIImageView *originReturnValue) {
+            [selfObject qimgv_didInitialize];
+            return originReturnValue;
+        });
+        
+        ExtendImplementationOfNonVoidMethodWithSingleArgument([UIImageView class], @selector(initWithCoder:), NSCoder *, UIImageView *, ^UIImageView *(UIImageView *selfObject, NSCoder *aDecoder, UIImageView *originReturnValue) {
+            [selfObject qimgv_didInitialize];
+            return originReturnValue;
+        });
+        
+        OverrideImplementation([UIImageView class], @selector(setImage:), ^id(__unsafe_unretained Class originClass, SEL originCMD, IMP (^originalIMPProvider)(void)) {
+            return ^(UIImageView *selfObject, UIImage *image) {
+                
+                // call super
+                void (^callSuperBlock)(UIImage *) = ^void(UIImage *aImage) {
+                    void (*originSelectorIMP)(id, SEL, UIImage *);
+                    originSelectorIMP = (void (*)(id, SEL, UIImage *))originalIMPProvider();
+                    originSelectorIMP(selfObject, originCMD, aImage);
+                };
+                
+                if (selfObject.qmui_smoothAnimation && image.images) {
+                    if (image != selfObject.qimgv_animatedImage) {
+                        callSuperBlock(nil);
+                        selfObject.qimgv_animatedImage = image;
+                        [selfObject qimgv_requestToStartAnimation];
+                    }
+                } else {
+                    selfObject.qimgv_animatedImage = nil;
+                    [selfObject qimgv_stopAnimating];
+                    callSuperBlock(image);
+                }
+            };
+        });
+        
+        OverrideImplementation([UIImageView class], @selector(image), ^id(__unsafe_unretained Class originClass, SEL originCMD, IMP (^originalIMPProvider)(void)) {
+            return ^UIImage *(UIImageView *selfObject) {
+                if (selfObject.qimgv_animatedImage) {
+                    return selfObject.qimgv_animatedImage;
+                }
+                
+                // call super
+                UIImage *(*originSelectorIMP)(id, SEL);
+                originSelectorIMP = (UIImage *(*)(id, SEL))originalIMPProvider();
+                UIImage *result = originSelectorIMP(selfObject, originCMD);
+                
+                return result;
+            };
+        });
+
+        ExtendImplementationOfVoidMethodWithoutArguments([UIImageView class], @selector(layoutSubviews), ^(UIImageView *selfObject) {
+            if (selfObject.qimgv_animatedImageLayer) {
+                selfObject.qimgv_animatedImageLayer.frame = selfObject.bounds;
+            }
+        });
+        
+        ExtendImplementationOfVoidMethodWithoutArguments([UIImageView class], @selector(didMoveToWindow), ^(UIImageView *selfObject) {
+            [selfObject qimgv_updateAnimationStateAutomatically];
+        });
+        
+        ExtendImplementationOfVoidMethodWithSingleArgument([UIImageView class], @selector(setHidden:), BOOL, ^(UIImageView *selfObject, BOOL hidden) {
+            [selfObject qimgv_updateAnimationStateAutomatically];
+        });
+        
+        ExtendImplementationOfVoidMethodWithSingleArgument([UIImageView class], @selector(setAlpha:), CGFloat, ^(UIImageView *selfObject, CGFloat alpha) {
+            [selfObject qimgv_updateAnimationStateAutomatically];
+        });
+        
+        ExtendImplementationOfVoidMethodWithSingleArgument([UIImageView class], @selector(setFrame:), CGRect, ^(UIImageView *selfObject, CGRect frame) {
+            [selfObject qimgv_updateAnimationStateAutomatically];
+        });
+        
+        OverrideImplementation([UIImageView class], @selector(sizeThatFits:), ^id(__unsafe_unretained Class originClass, SEL originCMD, IMP (^originalIMPProvider)(void)) {
+            return ^CGSize(UIImageView *selfObject, CGSize size) {
+                
+                if (selfObject.qimgv_animatedImage) {
+                    return selfObject.qimgv_animatedImage.size;
+                }
+                
+                // call super
+                CGSize (*originSelectorIMP)(id, SEL, CGSize);
+                originSelectorIMP = (CGSize (*)(id, SEL, CGSize))originalIMPProvider();
+                CGSize result = originSelectorIMP(selfObject, originCMD, size);
+                return result;
+            };
+        });
     });
-}
-
-// 虽然 UIImageView.h 里并没有把两个 initWithImage: 方法标记为 NS_DESIGNATED_INITIALIZER，但实测它们就是 NS_DESIGNATED_INITIALIZER，不会互相调用，也不会调用 initWithFrame:、initWithCoder:
-- (instancetype)qimgv_initWithImage:(UIImage *)image {
-    [self qimgv_initWithImage:image];
-    [self qimgv_didInitialize];
-    return self;
-}
-
-- (instancetype)qimgv_initWithImage:(UIImage *)image highlightedImage:(UIImage *)highlightedImage {
-    [self qimgv_initWithImage:image highlightedImage:highlightedImage];
-    [self qimgv_didInitialize];
-    return self;
-}
-
-- (instancetype)qimgv_initWithFrame:(CGRect)frame {
-    [self qimgv_initWithFrame:frame];
-    [self qimgv_didInitialize];
-    return self;
-}
-
-- (instancetype)qimgv_initWithCoder:(NSCoder *)aDecoder {
-    [self qimgv_initWithCoder:aDecoder];
-    [self qimgv_didInitialize];
-    return self;
 }
 
 - (void)qimgv_didInitialize {
     self.qmui_smoothAnimation = YES;
 }
 
-- (void)qimgv_setImage:(UIImage *)image {
-    if (self.qmui_smoothAnimation && image.images) {
-        if (image != self.qimgv_animatedImage) {
-            [self qimgv_setImage:nil];
-            self.qimgv_animatedImage = image;
-            [self qimgv_requestToStartAnimation];
-        }
-    } else {
-        self.qimgv_animatedImage = nil;
-        [self qimgv_stopAnimating];
-        [self qimgv_setImage:image];
-    }
-}
-
-- (UIImage *)qimgv_image {
-    if (self.qimgv_animatedImage) {
-        return self.qimgv_animatedImage;
-    }
-    return [self qimgv_image];
-}
-
 - (BOOL)qimgv_requestToStartAnimation {
     if (![self qimgv_canStartAnimation]) return NO;
+    
+    if (!self.qimgv_animatedImageLayer) {
+        self.qimgv_animatedImageLayer = [CALayer layer];
+        [self.layer addSublayer:self.qimgv_animatedImageLayer];
+    }
     
     if (!self.qimgv_displayLink) {
         self.qimgv_displayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(handleDisplayLink:)];
@@ -118,7 +157,7 @@ QMUISynthesizeNSIntegerProperty(qimgv_currentAnimatedImageIndex, setQimgv_curren
             self.qimgv_displayLink.frameInterval = preferredFramesPerSecond;
         }
         self.qimgv_currentAnimatedImageIndex = -1;
-        self.layer.contents = (__bridge id)self.qimgv_animatedImage.images.firstObject.CGImage;// 对于那种一开始就 pause 的图，displayLayer: 不会被调用，所以看不到图，为了避免这种情况，手动先把第一帧显示出来
+        self.qimgv_animatedImageLayer.contents = (__bridge id)self.qimgv_animatedImage.images.firstObject.CGImage;// 对于那种一开始就 pause 的图，displayLayer: 不会被调用，所以看不到图，为了避免这种情况，手动先把第一帧显示出来
     }
     
     self.qimgv_displayLink.paused = self.qmui_pause;
@@ -130,6 +169,10 @@ QMUISynthesizeNSIntegerProperty(qimgv_currentAnimatedImageIndex, setQimgv_curren
     if (self.qimgv_displayLink) {
         [self.qimgv_displayLink invalidate];
         self.qimgv_displayLink = nil;
+    }
+    if (self.qimgv_animatedImageLayer) {
+        [self.qimgv_animatedImageLayer removeFromSuperlayer];
+        self.qimgv_animatedImageLayer = nil;
     }
 }
 
@@ -145,38 +188,9 @@ QMUISynthesizeNSIntegerProperty(qimgv_currentAnimatedImageIndex, setQimgv_curren
     return self.qmui_visible && !CGRectIsEmpty(self.frame);
 }
 
-- (void)qimgv_didMoveToWindow {
-    [self qimgv_didMoveToWindow];
-    [self qimgv_updateAnimationStateAutomatically];
-}
-
-- (void)qimgv_setHidden:(BOOL)hidden {
-    [self qimgv_setHidden:hidden];
-    [self qimgv_updateAnimationStateAutomatically];
-}
-
-- (void)qimgv_setAlpha:(CGFloat)alpha {
-    [self qimgv_setAlpha:alpha];
-    [self qimgv_updateAnimationStateAutomatically];
-}
-
-- (void)qimgv_setFrame:(CGRect)frame {
-    [self qimgv_setFrame:frame];
-    [self qimgv_updateAnimationStateAutomatically];
-}
-
-
 - (void)handleDisplayLink:(CADisplayLink *)displayLink {
     self.qimgv_currentAnimatedImageIndex = self.qimgv_currentAnimatedImageIndex < self.qimgv_animatedImage.images.count - 1 ? (self.qimgv_currentAnimatedImageIndex + 1) : 0;
-    [self.layer setNeedsDisplay];
-}
-
-- (void)qimgv_displayLayer:(CALayer *)layer {
-    if (self.qimgv_animatedImage) {
-        layer.contents = (__bridge id)self.qimgv_animatedImage.images[self.qimgv_currentAnimatedImageIndex].CGImage;
-    } else {
-        [self qimgv_displayLayer:layer];
-    }
+    self.qimgv_animatedImageLayer.contents = (__bridge id)self.qimgv_animatedImage.images[self.qimgv_currentAnimatedImageIndex].CGImage;
 }
 
 static char kAssociatedObjectKey_smoothAnimation;
@@ -197,7 +211,7 @@ static char kAssociatedObjectKey_pause;
 - (void)setQmui_pause:(BOOL)qmui_pause {
     objc_setAssociatedObject(self, &kAssociatedObjectKey_pause, @(qmui_pause), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     if (self.animationImages || self.image.images) {
-        self.layer.qmui_pause = qmui_pause;
+        self.qimgv_animatedImageLayer.qmui_pause = qmui_pause;
     }
     if (self.qimgv_displayLink) {
         self.qimgv_displayLink.paused = qmui_pause;
