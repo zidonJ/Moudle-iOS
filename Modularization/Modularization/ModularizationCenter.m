@@ -7,7 +7,6 @@
 //
 
 #import "ModularizationCenter.h"
-#import <JLRoutes/JLRoutes.h>
 
 static ModularizationCenter *_instance = nil;
 
